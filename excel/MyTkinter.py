@@ -125,6 +125,12 @@ class ReadAndCompareFileName:
                     number += 1
 
     def updata_img_path_excel(self, img_url, column_name):
+        '''
+        没用上
+        :param img_url:
+        :param column_name:
+        :return:
+        '''
         # 列不存在时，进行添加，当列存在时，不进行添加
         sheet = self.workbook[self.sheet_name]
         [max_row, max_column] = self.__get_max_column_row()
@@ -137,6 +143,11 @@ class ReadAndCompareFileName:
         # 向其中添加数据
 
     def save_excel(self, img_url):
+        '''
+        图片与excel表格中信息进行匹配，并存入图片名称
+        :param img_url:
+        :return:
+        '''
         print("开始修改表格")
         sheet = self.workbook[self.sheet_name]
         [max_row, max_column] = self.__get_max_column_row()
@@ -160,11 +171,11 @@ class ReadAndCompareFileName:
                         self.workbook.save(self.url)
                         sheet = self.workbook[self.sheet_name]
             r = r + addNumber
-        for r in range(2, sheet.max_row +1):
+        for r in range(2, sheet.max_row + 1):
             for name in img_name_list:
                 if name not in has_add_name and name.startswith(sheet.cell(row=r, column=sheet.max_column).value):
-                    print("修改第"+str(r)+"行的路径\n")
-                    file_path = img_url+"/"+name
+                    print("修改第" + str(r) + "行的路径\n")
+                    file_path = img_url + "/" + name
                     sheet.cell(row=r, column=sheet.max_column, value=os.path.relpath(file_path, self.url))
                     has_add_name.append(name)
                     self.workbook.save(self.url)
@@ -215,11 +226,10 @@ def open_file_dialog(entry_var):
 
 # 定义函数：开始转换的操作（示例函数，需要根据实际需求编写）
 def start_conversion():
-
     if entry_var2.get() == None or entry_var2.get() == "":
-        messagebox.showinfo("woring！！！","请选择.xls、.xlsx、.csv文件")
+        messagebox.showinfo("woring！！！", "请选择.xls、.xlsx、.csv文件")
     elif entry_var1.get() == None or entry_var1.get() == "":
-        messagebox.showinfo("woring！！！","请选择照片所在文件夹")
+        messagebox.showinfo("woring！！！", "请选择照片所在文件夹")
     else:
         # 进行文件转换操作
         url_excel = None
@@ -228,7 +238,7 @@ def start_conversion():
             csv_file = entry_var2.get()
             df = pd.read_csv(csv_file, encoding='gbk')
             # 将DataFrame保存为Excel文件
-            url_excel = entry_var2.get().replace(".csv","") + '.xlsx'
+            url_excel = entry_var2.get().replace(".csv", "") + '.xlsx'
             df.to_excel(url_excel, index=False)
         elif entry_var2.get().endswith(".xlsx"):
             url_excel = entry_var2.get()
