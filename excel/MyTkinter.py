@@ -154,7 +154,7 @@ class ReadAndCompareFileName:
         # 迭代函数每保存一次就需要重新遍历一次但是要记录上次添加数据的最终位置
         img_name_list = os.listdir(img_url)
         has_add_name = []
-        r = 2
+        r = 1
         while r <= sheet.max_row:
             addNumber = self.picture_number[sheet.cell(row=r, column=max_column).value]
             # cNumber = 0
