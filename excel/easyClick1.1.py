@@ -5,7 +5,13 @@ from tkinter import messagebox
 import pandas as pd
 import openpyxl
 import chardet
+import re
+
 from openpyxl.cell import _writer
+
+'''
+天地图：dUfD7ZHeYbe3
+'''
 
 
 class ReadAndCompareFileName:
@@ -15,15 +21,26 @@ class ReadAndCompareFileName:
         self.sheet_name = None
         self.url = None
         self.picture_number = dict()
+        self.input_field = {"信号灯": "机动车信号灯",
+                            "人行灯": '人行灯',
+                            "指路": "指路标志",
+                            "路名": "路名牌",
+                            "桥名": "桥名牌",
+                            "禁令": "组合禁令，含单块禁停",
+                            "机非": "机非分道行驶标志",
+                            "限高": "限高牌",
+                            "限载": "限载牌",
+                            "门架": "限高架",
+                            "清拖": "违停清拖",
+                            "其他": "其他",
+                            }
 
-    def get_image_path_to_excel(self, data, img_name, beforString, imgURL):
+    def get_image_path_to_excel(self, data, img_name, imgURL):
         imgURL = imgURL.replace("\\", "/") + "/"
-
         i = 0
         while i < len(data["附件ID与名称"]):
             # 获取第i行的附件id与名称
             id_image_name = data['附件ID与名称'][i]
-
             # 删除掉首尾的分号
             id_image_name = id_image_name.strip(";").replace("\n", "")
             # 用分号进行分割
@@ -39,9 +56,9 @@ class ReadAndCompareFileName:
                 # 判断最后一列是否存在数据
                 if sheet.cell(row=r, column=max_column).value is None or sheet.cell(row=r,
                                                                                     column=max_column).value == "":
-
                     # 如果不存在数据，则将其填入其中
-                    sheet.cell(row=r, column=max_column, value=os.path.relpath(filePath, self.url).replace("\\","/").replace("../", "./"))
+                    sheet.cell(row=r, column=max_column,
+                               value=os.path.relpath(filePath, self.url).replace("\\", "/").replace("../", "./"))
                     self.workbook.save(self.url)
                     sheet = self.workbook[self.sheet_name]
                     sheet_data = sheet.values
@@ -49,16 +66,15 @@ class ReadAndCompareFileName:
                     data = pd.DataFrame(sheet_data, columns=columns)
                     i += 1
                 else:
-
                     # 如果所在行的最后一列存在数据，则复制上一行的内容到新创建的行中，并修改最后一列的数据为最新的数据
                     # 获取上一行数据
                     previous_rows = list(sheet.iter_rows(min_row=r, max_row=r, values_only=True))[0]
                     # 在指定行插入与上一行相同的数据
                     sheet.insert_rows(r + 1)
-
                     for c_insert in range(1, sheet.max_column + 1):
                         sheet.cell(row=r + 1, column=c_insert, value=previous_rows[c_insert - 1])
-                    sheet.cell(row=r + 1, column=max_column, value=os.path.relpath(filePath, self.url).replace("\\","/").replace("../", "./"))
+                    sheet.cell(row=r + 1, column=max_column,
+                               value=os.path.relpath(filePath, self.url).replace("\\", "/").replace("../", "./"))
                     self.workbook.save(self.url)
                     sheet = self.workbook[self.sheet_name]
                     sheet_data = sheet.values
@@ -93,7 +109,6 @@ class ReadAndCompareFileName:
         return encoding
 
     def add_point_image_id(self, point_img_id_name, point_img_id_value):
-
         self.__add_emperty_column()
         [max_row, max_column] = self.__get_max_column_row()
         number = 1  # 稍后修改
@@ -127,6 +142,123 @@ class ReadAndCompareFileName:
                 columns = next(sheet_data)
                 data = pd.DataFrame(sheet_data, columns=columns)
                 i += 1
+
+    def field_matching(self):
+        '''
+        自动匹配，市政设施备注与正式名称
+        :return:
+        '''
+        sheet = self.workbook[self.sheet_name]
+        # 数据转换
+        data = sheet.values
+        columns = next(data)
+        df = pd.DataFrame(data, columns=columns)
+        column_number = -1
+        for c in range(1, sheet.max_column + 1):
+            if 'Comment' == sheet.cell(row=1, column=c).value:
+                column_number = c
+        for i in range(len(df['Comment'])):
+            if df['Comment'][i] in self.input_field.keys():
+                sheet.cell(row=i + 1, column=column_number, value=self.input_field[df['Comment'][i]])
+        self.workbook.save(self.url)
+
+    def __get_comment_column_number(self):
+        sheet = self.workbook[self.sheet_name]
+        # 添加三列
+        # 数据转换
+        data = sheet.values
+        columns = next(data)
+        df = pd.DataFrame(data, columns=columns)
+        column_number = -1
+        for c in range(1, sheet.max_column):
+            if 'Comment' == sheet.cell(row=1, column=c).value:
+                column_number = c
+        return column_number
+
+    def add_ludeng_column(self):
+        '''
+        向路灯表格中添加列信息
+        :return:
+        '''
+        sheet = self.workbook[self.sheet_name]
+        # 添加三列
+        # 数据转换
+        column_number = self.__get_comment_column_number()
+        # 插入三列
+        # 添加单侧双侧
+        # 添加标牌颜色
+        sheet.insert_cols(column_number, amount=3)
+        column_name = {"0": "布置方式", "1": "路灯铭牌（绿色/蓝色/其他）", "2": "路灯盏数（盏/根）"}
+        for i in range(3):
+            sheet.cell(row=1, column=column_number + i, value=column_name[str(i)])
+        self.workbook.save(self.url)
+        sheet = self.workbook[self.sheet_name]
+        # 添加灯头数
+        column_number = self.__get_comment_column_number()
+        sheet = self.workbook[self.sheet_name]
+        for r in range(2, sheet.max_row + 1):
+            # 获取路灯数
+            value = sheet.cell(row=r, column=column_number).value
+            numbers = list()
+            if value is not None and value != "":
+                numbers = re.findall(r'\d', value)
+            else:
+                numbers.append(str(-1))
+            if len(numbers) == 0:
+                sheet.cell(row=r, column=column_number - 1, value=str(-1))
+            else:
+                if sheet.cell(row=r, column=column_number).value is not None:
+                    value = ''.join(char for char in sheet.cell(row=r, column=column_number).value if char.isalpha())
+                    sheet.cell(row=r, column=column_number, value=value)
+                sheet.cell(row=r, column=column_number - 1, value=numbers[0])
+        self.workbook.save(self.url)
+        # 添加在线情况，max_column-2
+        sheet = self.workbook[self.sheet_name]
+        column_number = self.__get_comment_column_number()
+        sheet.insert_cols(column_number + 1)
+        for r in range(2, sheet.max_row + 1):
+            if sheet.cell(row=r, column=column_number).value is not None and sheet.cell(row=r,
+                                                                                        column=column_number).value != "":
+                if "损坏" not in sheet.cell(row=r, column=column_number).value:
+                    sheet.cell(row=r, column=column_number + 1, value="在线")
+                else:
+                    value = sheet.cell(row=r, column=column_number).value
+                    if value is not None and value != "":
+                        value = value.replace("损坏", "")
+                        if "," in value:
+                            value = value.replace(",", "")
+                        elif "，":
+                            value = value.replace("，", "")
+                    if value == "":
+                        sheet.cell(row=r, column=column_number, value="功能灯")
+                    else:
+                        sheet.cell(row=r, column=column_number, value=value)
+                    sheet.cell(row=r, column=column_number + 1, value="损坏")
+            else:
+                sheet.cell(row=r, column=column_number, value="功能灯")
+                sheet.cell(row=r, column=column_number + 1, value="在线")
+
+        sheet.cell(row=1, column=column_number + 1, value="在线状态")
+
+        self.workbook.save(self.url)
+
+    def add_belong_to(self, belong):
+        '''
+        添加管养区域
+        :param belong:
+        :return:
+        '''
+        sheet = self.workbook[self.sheet_name]
+        sheet.insert_cols(2)
+        for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row, min_col=2, max_col=2):
+            for cell in row:
+                cell.value = belong
+        for i in range(2, sheet.max_row + 1):
+            value = sheet.cell(row=i, column=1).value.strip("/")
+            sheet.cell(row=i, column=1, value=value)
+        sheet.cell(row=1, column=2, value="管养区域")
+        sheet.cell(row=1, column=1, value="道路名称")
+        self.workbook.save(self.url)
 
     def __get_max_column_row(self):
         '''
@@ -171,10 +303,6 @@ class ReadAndCompareFileName:
         return df
 
     def my_close_workbook(self, value):
-        # sheet = self.workbook[self.sheet_name]
-        # if value in sheet[1]:
-        #     [index_row, index_column] = self.__get_column_row_number(value)
-        #     sheet.delete_cols(index_column)
         self.workbook.close()
 
 
@@ -200,11 +328,11 @@ def open_file_dialog(entry_var):
 # 定义函数：开始转换的操作（示例函数，需要根据实际需求编写）
 def start_conversion():
     rcf = ReadAndCompareFileName()
-    # entry_var2.set("E:\项目文件夹\软件开发类\江宁市政设施调查平台开发报价\江宁普查项目外业资料\测试资料/10.16调研.csv")
-    # entry_var1.set("E:\项目文件夹\软件开发类\江宁市政设施调查平台开发报价\江宁普查项目外业资料\测试资料/10.16调研")
-    if entry_var2.get() == None or entry_var2.get() == "":
+    # entry_var2.set("E:/项目文件夹/江宁普查项目外业资料/测试资料/路灯/北沿路-照明-表格.csv")
+    # entry_var1.set("E:/项目文件夹/江宁普查项目外业资料/测试资料/路灯/北沿路")
+    if entry_var2.get() is None or entry_var2.get() == "":
         messagebox.showinfo("woring！！！", "请选择.xls、.xlsx、.csv文件")
-    elif entry_var1.get() == None or entry_var1.get() == "":
+    elif entry_var1.get() is None or entry_var1.get() == "":
         messagebox.showinfo("woring！！！", "请选择照片所在文件夹")
     else:
         # 进行文件转换操作
@@ -230,25 +358,42 @@ def start_conversion():
         # 获取目录下文件名称
         url_img = entry_var1.get()
         img_name = os.listdir(url_img)
-
-        beforString = entry_var3.get()
-        if beforString == "" or beforString is None:
-            beforString = "pic_"
-        else:
-            beforString += "_"
-        rcf.get_image_path_to_excel(data, img_name, beforString, url_img)
-        rcf.add_point_image_id('point_img_id_name', 'point_img_id_value')
+        belong_to = belong_to_var.get()
+        if belong_to is None or belong_to == "":
+            belong_to = "东山街道（区管范围）"
+        rcf.add_belong_to(belong_to)
+        if selected_subject_option.get() == "1":
+            '''
+            按照表格将内容进行转换
+            '''
+            rcf.get_image_path_to_excel(data, img_name, url_img)
+            rcf.add_point_image_id('point_img_id_name', 'point_img_id_value')
+            rcf.field_matching()
+        elif selected_subject_option.get() == "2":
+            '''
+            提取备注中灯头数量
+            '''
+            rcf.get_image_path_to_excel(data, img_name, url_img)
+            rcf.add_point_image_id('point_img_id_name', 'point_img_id_value')
+            rcf.add_ludeng_column()
+        elif selected_subject_option.get() == "3":
+            '''
+            直接进行转换即可
+            '''
+            rcf.get_image_path_to_excel(data, img_name, url_img)
+            rcf.add_point_image_id('point_img_id_name', 'point_img_id_value')
         rcf.my_close_workbook("excelTimeCode")
         messagebox.showinfo("转换完成", url_excel + "转换已完成！")
+
+
 def split_road_by_subject():
     '''
     按照专业对道路进行分割,
     同一个断面只有一个分割线。
     :return:
     '''
-
-    
     pass
+
 
 # Excel文件路径
 # 创建标签、输入框和按钮（图片目录）
@@ -273,7 +418,6 @@ entry2.grid(row=1, column=1, padx=10, pady=10, sticky="w")  # 放置在第1行�
 button2 = tk.Button(root, text="②选择文件", command=lambda: open_file_dialog(entry_var2))
 button2.grid(row=1, column=2, padx=10, pady=10, sticky="w")  # 放置在第1行第2列
 
-
 # 分割线文件路径
 splitLineFilePath = tk.Label(root, text="分割线文件路径:")
 splitLineFilePath.grid(row=2, column=0, padx=10, pady=10, sticky="w")  # 放置在第1行第0列
@@ -285,34 +429,43 @@ split_file_entery.grid(row=2, column=1, padx=10, pady=10, sticky="w")  # 放置�
 split_file_button = tk.Button(root, text="②选择分割线文件", command=lambda: open_file_dialog(split_file_entery))
 split_file_button.grid(row=2, column=2, padx=10, pady=10, sticky="w")  # 放置在第1行第2列
 
-# image存放的路径
-label3 = tk.Label(root, text="图片名前缀:")
-label3.grid(row=3, column=0, padx=10, pady=10, sticky="w")  # 放置在第1行第0列
+# 定义一个变量，用于保存选择框的状态
+selected_subject_option = tk.StringVar()
+selected_subject_option.set("2")
+subject_names = [('市政', "1"), ('路灯', "2"), ('保洁', "3")]
 
-entry_var3 = tk.StringVar()
-entry3 = tk.Entry(root, textvariable=entry_var3, width=50)
-entry3.grid(row=3, column=1, padx=10, pady=10, sticky="w")  # 放置在第1行第1列
+for text, value in subject_names:
+    subject_button = tk.Radiobutton(root, text=text, variable=selected_subject_option, value=value)
+    subject_button.grid(row=3, column=int(value), padx=10, pady=10, sticky='w')
+
+# image存放的路径
+belong_to_label = tk.Label(root, text="设施归属:")
+belong_to_label.grid(row=4, column=0, padx=10, pady=10, sticky="w")  # 放置在第1行第0列
+
+belong_to_var = tk.StringVar()
+belong_to_entry = tk.Entry(root, textvariable=belong_to_var, width=50)
+belong_to_entry.grid(row=4, column=1, padx=10, pady=10, sticky="w")  # 放置在第1行第1列
 
 # 添加列的名称
 add_column_label = tk.Label(root, text="表格中图片所在列名称:")
-add_column_label.grid(row=4, column=0, padx=10, pady=10, sticky="w")  # 放置在第1行第0列
+add_column_label.grid(row=5, column=0, padx=10, pady=10, sticky="w")  # 放置在第1行第0列
 
 add_column_label_entry_var = tk.StringVar()
 add_column_label_entry = tk.Entry(root, textvariable=add_column_label_entry_var, width=50)
-add_column_label_entry.grid(row=4, column=1, padx=10, pady=10, sticky="w")  # 放置在第1行第1列
+add_column_label_entry.grid(row=5, column=1, padx=10, pady=10, sticky="w")  # 放置在第1行第1列
 
 # 最下方按钮
 # 创建开始转换按钮和关闭程序按钮（位于同一行）
 start_button = tk.Button(root, text="③开始转换", command=start_conversion)
-start_button.grid(row=5, column=0, padx=10, pady=10, sticky="w")  # 放置在第2行第0列
+start_button.grid(row=6, column=0, padx=10, pady=10, sticky="w")  # 放置在第2行第0列
 
 # 最下方按钮
 # 创建开始转换按钮和关闭程序按钮（位于同一行）
 start_button = tk.Button(root, text="④路段切分", command=split_road_by_subject)
-start_button.grid(row=5, column=1, padx=10, pady=10, sticky="w")  # 放置在第2行第0列
+start_button.grid(row=6, column=1, padx=10, pady=10, sticky="w")  # 放置在第2行第0列
 
 close_button = tk.Button(root, text="关闭程序", command=root.quit)
-close_button.grid(row=5, column=2, padx=10, pady=10, sticky="w")  # 放置在第2行第1列
+close_button.grid(row=6, column=2, padx=10, pady=10, sticky="w")  # 放置在第2行第1列
 # # 加载Excel表格按钮
 # load_excel_button = tk.Button(root, text="Load Excel", command=load_excel)
 # load_excel_button.pack(side=tk.LEFT)

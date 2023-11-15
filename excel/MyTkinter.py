@@ -4,6 +4,7 @@ import os
 from tkinter import messagebox
 import pandas as pd
 import openpyxl
+import chardet
 from openpyxl.cell import _writer
 
 
@@ -47,6 +48,17 @@ class ReadAndCompareFileName:
             time = time[0: 16]
         excel_img_time_code = name_split[1] + "_" + time
         return excel_img_time_code
+
+    def detect_encoding(self, file_path):
+        with open(file_path, 'rb') as f:
+            detector = chardet.universaldetector.UniversalDetector()
+            for line in f.readlines():
+                detector.feed(line)
+                if detector.done:
+                    break
+            detector.close()
+            encoding = detector.result['encoding']
+        return encoding
 
     def get_data(self, url, addName):
         '''
@@ -226,6 +238,7 @@ def open_file_dialog(entry_var):
 
 # 定义函数：开始转换的操作（示例函数，需要根据实际需求编写）
 def start_conversion():
+    rcf = ReadAndCompareFileName()
     if entry_var2.get() == None or entry_var2.get() == "":
         messagebox.showinfo("woring！！！", "请选择.xls、.xlsx、.csv文件")
     elif entry_var1.get() == None or entry_var1.get() == "":
@@ -236,7 +249,8 @@ def start_conversion():
         if entry_var2.get().endswith(".csv"):
             # 读取CSV文件
             csv_file = entry_var2.get()
-            df = pd.read_csv(csv_file, encoding='gbk')
+            detect_encoding = rcf.detect_encoding(csv_file)
+            df = pd.read_csv(csv_file, encoding=detect_encoding)
             # 将DataFrame保存为Excel文件
             url_excel = entry_var2.get().replace(".csv", "") + '.xlsx'
             df.to_excel(url_excel, index=False)
@@ -246,7 +260,6 @@ def start_conversion():
             url_excel = entry_var2.get()
         else:
             messagebox.showinfo("woring！！！", "无法打开所选文件，请重新选择")
-        rcf = ReadAndCompareFileName()
         addName = add_column_label_entry.get()
         if addName == "" or addName is None:
             addName = "img_path"
