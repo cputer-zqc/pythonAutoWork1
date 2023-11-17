@@ -1,12 +1,29 @@
-import os
+import tkinter as tk
+from tkinter import ttk
 
-# 获取当前脚本所在的目录
-current_directory = os.path.dirname(os.path.abspath(__file__))
+class PartitionedWindow(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("上下排列的分区示例")
 
-# 文件的路径
-file_path = os.path.join(current_directory, 'E:/项目文件夹/江宁普查项目外业资料/测试资料/道路总图/1.市政设施设施量统计表模板-汤山街道（已标定）.xlsx')
+        # 创建第一个分区
+        partition1 = ttk.Labelframe(self, text="分区1")
+        label1 = tk.Label(partition1, text="这是第一个分区的内容")
+        label1.pack(padx=10, pady=10)
+        partition1.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-# 获取文件的父路径
-parent_directory = os.path.dirname(file_path)
+        # 创建第二个分区
+        partition2 = ttk.Labelframe(self, text="分区2")
+        label2 = tk.Label(partition2, text="这是第二个分区的内容")
+        label2.pack(padx=10, pady=10)
+        partition2.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-print("文件的父路径是:", parent_directory)
+        # 创建第三个分区
+        partition3 = ttk.Labelframe(self, text="分区3")
+        label3 = tk.Label(partition3, text="这是第三个分区的内容")
+        label3.pack(padx=10, pady=10)
+        partition3.pack(side=tk.TOP, padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+if __name__ == "__main__":
+    app = PartitionedWindow()
+    app.mainloop()
