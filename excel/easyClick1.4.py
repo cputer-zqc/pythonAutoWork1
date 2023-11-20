@@ -351,8 +351,6 @@ class ReadAndCompareFileName:
                 value = value.replace("环卫—", "")
             if "环卫" in value:
                 value = value.replace("环卫", "")
-            if "2" in value:
-                value = value.replace("2","")
             if "文华街（合并）/" in value:
                 value = value.replace("文华街（合并）/","")
             if "、" in value:
@@ -383,6 +381,8 @@ class ReadAndCompareFileName:
                 value = value.replace("绿化  ", "")
             if "绿化数据-" in value:
                 value = value.replace("绿化数据-", "")
+            if "交通-" in value:
+                value = value.replace("交通-", "")
             sheet.cell(row=i, column=1, value=value)
         sheet.cell(row=1, column=2, value="管养区域")
         sheet.cell(row=1, column=1, value="道路名称")
